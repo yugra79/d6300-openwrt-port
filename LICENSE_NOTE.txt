@@ -1,0 +1,3 @@
+Il port (DTS, patch, base-files) e' distribuito con licenza GPL-2.0-or-later.
+Il file cferam.000 e' estratto dal firmware stock Netgear ed e' usato come
+in openwrt/bcm63xx-cfe (repository upstream).
