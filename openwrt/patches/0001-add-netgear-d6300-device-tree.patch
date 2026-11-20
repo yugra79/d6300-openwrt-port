@@ -1,0 +1,258 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Port D6300 <port@example.org>
+Date: Fri, 20 Nov 2026 15:30:00 +0300
+Subject: [PATCH] bmips: add Netgear D6300 device tree
+
+Add support for the Netgear D6300, a BCM6362 based VDSL/ADSL router
+with 128 MB RAM, 64 MB NAND, 5x GbE (BCM53125 switch), 2x USB 2.0,
+an integrated 2.4 GHz radio and a BCM4360 5 GHz module on mini-PCIe.
+
+Board data derived from the stock firmware analysis and boot log:
+- NAND: ST NAND512W3A2CN6 (64 MB, 16 KB blocks, 512 B pages)
+- switch: BCM53125 (5 GbE ports, RGMII to the internal switch)
+- port mapping: lan1-lan4, wan
+- LEDs: internet/giga/lan via GPIO 4/5/7/10/26/30
+- partition layout: cferom, rootfs_update, wfi, flag, data
+
+The 5 GHz BCM4360 module is not supported (no mainline driver).
+
+---
+diff --git a/target/linux/bmips/dts/bcm6362-netgear-d6300.dts b/target/linux/bmips/dts/bcm6362-netgear-d6300.dts
+new file mode 100644
+index 0000000..0393309
+--- /dev/null
++++ b/target/linux/bmips/dts/bcm6362-netgear-d6300.dts
+@@ -0,0 +1,230 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++
++#include "bcm6362.dtsi"
++
++/ {
++	model = "Netgear D6300";
++	compatible = "netgear,d6300", "brcm,bcm6362";
++
++	// TODO: boot/running LEDs, once the mapping of the 24 serial LED
++	// positions is known (see comments below).
++
++	leds {
++		compatible = "gpio-leds";
++
++		// LED connections confirmed from the stock firmware gpio_test.sh:
++		//   INET_FAIL_LED    = GPIO 4
++		//   INET_ACT_LED     = GPIO 5
++		//   GIGA_10_LINK_LED = GPIO 7
++		//   GIGA_LINK_LED    = GPIO 10
++		//   LAN_10_LINK_LED  = GPIO 26
++		//   LAN_LINK_LED     = GPIO 30
++		led_internet_fail: led-4 {
++			label = "red:internet";
++			gpios = <&gpio 4 GPIO_ACTIVE_LOW>;
++		};
++
++		led_internet_act: led-5 {
++			label = "amber:internet";
++			gpios = <&gpio 5 GPIO_ACTIVE_LOW>;
++		};
++
++		led_giga10: led-7 {
++			label = "green:giga10";
++			gpios = <&gpio 7 GPIO_ACTIVE_LOW>;
++		};
++
++		led_giga: led-10 {
++			label = "green:giga";
++			gpios = <&gpio 10 GPIO_ACTIVE_LOW>;
++		};
++
++		led_lan10: led-26 {
++			label = "green:lan10";
++			gpios = <&gpio 26 GPIO_ACTIVE_LOW>;
++		};
++
++		led_lan: led-30 {
++			label = "green:lan";
++			gpios = <&gpio 30 GPIO_ACTIVE_LOW>;
++		};
++	};
++
++	// TODO: keys (reset/wps/wlan). The stock firmware does not expose the
++	// GPIO numbers; they must be determined on the device before enabling.
++};
++
++&ehci {
++	status = "okay";
++};
++
++&ethernet {
++	status = "okay";
++
++	nvmem-cells = <&macaddr_cferom_6a0>;
++	nvmem-cell-names = "mac-address";
++};
++
++&mdio_ext {
++	switch@1e {
++		compatible = "brcm,bcm53125";
++		reg = <30>;
++
++		dsa,member = <1 0>;
++
++		ports {
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			port@0 {
++				reg = <0>;
++				label = "lan1";
++			};
++
++			port@1 {
++				reg = <1>;
++				label = "lan2";
++			};
++
++			port@2 {
++				reg = <2>;
++				label = "lan3";
++			};
++
++			port@3 {
++				reg = <3>;
++				label = "lan4";
++			};
++
++			port@4 {
++				reg = <4>;
++				label = "wan";
++			};
++
++			port@8 {
++				reg = <8>;
++
++				phy-mode = "rgmii-id";
++				ethernet = <&switch0port4>;
++
++				fixed-link {
++					speed = <1000>;
++					full-duplex;
++				};
++			};
++		};
++	};
++};
++
++&nflash {
++	status = "okay";
++
++	nandcs@0 {
++		compatible = "brcm,nandcs";
++		reg = <0>;
++		nand-ecc-step-size = <512>;
++		nand-ecc-strength = <15>;
++		nand-on-flash-bbt;
++
++		#address-cells = <1>;
++		#size-cells = <1>;
++
++		partitions {
++			compatible = "fixed-partitions";
++			#address-cells = <1>;
++			#size-cells = <1>;
++
++			// Partition layout derived from the stock firmware boot log
++			// (Linux 2.6.30, bcm963xx_mtd): nvram/rootfs_update/rootfs/data.
++			// The CFE boots the "latest image" from the rootfs area (0x1d80000).
++			// TODO: verify the exact CFE layout (cferom size, flags area)
++			// from the CFE prompt before the upstream submission.
++
++			partition@0 {
++				label = "cferom";
++				reg = <0x0000000 0x0004000>;
++				read-only;
++
++				nvmem-layout {
++					compatible = "fixed-layout";
++					#address-cells = <1>;
++					#size-cells = <1>;
++
++					// TODO: verify the MAC offset on the device
++					// (DGND3700v2 uses 0x6a0 in its cferom).
++					macaddr_cferom_6a0: macaddr@6a0 {
++						reg = <0x6a0 0x6>;
++					};
++				};
++			};
++
++			partition@4000 {
++				label = "rootfs_update";
++				reg = <0x0004000 0x1d7c000>;
++			};
++
++			partition@1d80000 {
++				compatible = "brcm,wfi";
++				label = "wfi";
++				reg = <0x1d80000 0x1d7c000>;
++				brcm,cferam = "cferam";
++			};
++
++			partition@3afc000 {
++				label = "flag";
++				reg = <0x3afc000 0x0004000>;
++				read-only;
++			};
++
++			partition@3b00000 {
++				label = "data";
++				reg = <0x3b00000 0x0400000>;
++			};
++		};
++	};
++};
++
++&ohci {
++	status = "okay";
++};
++
++&pcie {
++	status = "okay";
++};
++
++&pinctrl {
++	pinctrl_leds: leds {
++		function = "led";
++		pins = "gpio1";
++	};
++};
++
++&switch0 {
++	dsa,member = <0 0>;
++
++	ports {
++		switch0port4: port@4 {
++			reg = <4>;
++			label = "extsw";
++
++			phy-mode = "rgmii-id";
++
++			fixed-link {
++				speed = <1000>;
++				full-duplex;
++			};
++		};
++	};
++};
++
++&uart0 {
++	status = "okay";
++};
++
++&usbh {
++	status = "okay";
++};
++
++// Note: the stock firmware also drives the 24 serial LEDs on GPIO2 (clock)
++// and GPIO3 (data), plus GPIO 32/33/34 directly. Their function mapping is
++// unknown; the serial LED controller is therefore left disabled for now.
+
+-- 
+2.43.0

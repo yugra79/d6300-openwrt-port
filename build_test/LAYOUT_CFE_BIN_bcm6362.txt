@@ -1,0 +1,19 @@
+MAPPA LAYOUT cfe.bin — NETGEAR D6300 (ricetta bcm6362, round 38)
+Dimensione immagine: 14139412 byte (13.48 MB) — limite partizione wfi: 30916608 byte (29.48 MB)
+
+offset        contenuto                                   dimensione
+0x00000000    cferam JFFS2 (dummy v0 + cferam.000 v1)       507904
+0x0007C000    -> padding 0xFF fino a 496k
+0x0007C000    kernel (KERNEL_SIZE = 5 MB)                   5242880
+0x0057C000    UBI rootfs (placeholder 8 MB)                 8388608
+0x00D7C000    WFI tag (crc, version 0x5731, chip 0x6362,
+              flashType 2 = NAND 16k blocks)                20
+0x00D7C014    fine immagine
+
+Nella build reale:
+- il kernel sostituisce il placeholder (lzma + relocate)
+- l'UBI rootfs e' generato da ubinize (append-ubi)
+- il WFI tag e' calcolato sull'immagine completa (cfe-wfi-tag.py)
+
+Verifiche superate: magic JFFS2, dirent cferam.000, kernel offset,
+WFI tag (chip/flash) e CRC.

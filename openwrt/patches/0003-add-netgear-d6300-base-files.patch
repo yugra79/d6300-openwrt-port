@@ -1,0 +1,55 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Port D6300 <port@example.org>
+Date: Fri, 20 Nov 2026 15:30:00 +0300
+Subject: [PATCH] bmips: bcm6362: add Netgear D6300 base-files
+
+Add the Netgear D6300 to the bcm6362 base-files:
+- 01_leds: netdev triggers for the internet and LAN LEDs
+- 02_network: LAN1-4 / WAN configuration
+- platform.sh: sysupgrade via nand_do_upgrade
+
+---
+diff --git a/target/linux/bmips/bcm6362/base-files/etc/board.d/01_leds b/target/linux/bmips/bcm6362/base-files/etc/board.d/01_leds
+index 24f693b..e8e6dec 100644
+--- a/target/linux/bmips/bcm6362/base-files/etc/board.d/01_leds
++++ b/target/linux/bmips/bcm6362/base-files/etc/board.d/01_leds
+@@ -9,6 +9,10 @@
+ huawei,hg253s-v2)
+ 	ucidef_set_led_usbport "usb" "USB" "green:usb" "usb1-port1" "usb2-port1"
+ 	;;
++netgear,d6300)
++	ucidef_set_led_netdev "internet" "Internet" "amber:internet" "wan"
++	ucidef_set_led_netdev "lan" "LAN" "green:lan" "lan"
++	;;
+ netgear,dgnd3700-v2)
+ 	ucidef_set_led_usbport "usb1" "USB1" "green:usb1" "usb1-port1" "usb2-port1"
+ 	ucidef_set_led_usbport "usb2" "USB2" "green:usb2" "usb1-port2" "usb2-port2"
+
+diff --git a/target/linux/bmips/bcm6362/base-files/etc/board.d/02_network b/target/linux/bmips/bcm6362/base-files/etc/board.d/02_network
+index 7010b35..71f72c9 100644
+--- a/target/linux/bmips/bcm6362/base-files/etc/board.d/02_network
++++ b/target/linux/bmips/bcm6362/base-files/etc/board.d/02_network
+@@ -6,6 +6,7 @@
+ 
+ case "$(board_name)" in
+ huawei,hg253s-v2 |\
++netgear,d6300 |\
+ netgear,dgnd3700-v2)
+ 	ucidef_set_interfaces_lan_wan "lan1 lan2 lan3 lan4" "wan"
+ 	;;
+
+diff --git a/target/linux/bmips/bcm6362/base-files/lib/upgrade/platform.sh b/target/linux/bmips/bcm6362/base-files/lib/upgrade/platform.sh
+index 17dcfd2..77f2956 100644
+--- a/target/linux/bmips/bcm6362/base-files/lib/upgrade/platform.sh
++++ b/target/linux/bmips/bcm6362/base-files/lib/upgrade/platform.sh
+@@ -10,6 +10,7 @@
+ platform_do_upgrade() {
+ 	case "$(board_name)" in
+ 	huawei,hg253s-v2 |\
++	netgear,d6300 |\
+ 	netgear,dgnd3700-v2)
+ 		CI_JFFS2_CLEAN_MARKERS=1
+ 		nand_do_upgrade "$1"
+
+-- 
+2.43.0
