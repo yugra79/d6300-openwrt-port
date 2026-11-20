@@ -45,6 +45,29 @@ jobs:
           done
           git log --oneline -4
 
+      - name: Patch bcm63xx-cfe package to include cferam.000
+        run: |
+          cd openwrt-src
+          python3 - <<'PYEOF'
+          import io, os, sys
+          path = "package/kernel/bcm63xx-cfe/Makefile"
+          src = io.open(path, encoding="utf-8").read()
+          hook = "\ndefine Build/Prepare\n\t$(call Build/Prepare/Default)\n\t$(INSTALL_DIR) $(PKG_BUILD_DIR)/netgear,d6300\n\t$(CP) $(TOPDIR)/../openwrt/bcm63xx-cfe/netgear,d6300/cferam.000 $(PKG_BUILD_DIR)/netgear,d6300/cferam.000\nendef\n"
+          if "define Build/Prepare" in src:
+              print("hook gia' presente")
+          else:
+              marker = "include $(INCLUDE_DIR)/package.mk"
+              if marker not in src:
+                  print("ERRORE: marker non trovato nel Makefile")
+                  sys.exit(1)
+              src = src.replace(marker, marker + hook, 1)
+              io.open(path, "w", encoding="utf-8").write(src)
+              print("hook Build/Prepare aggiunto al package bcm63xx-cfe")
+          for line in io.open(path, encoding="utf-8").read().splitlines():
+              if "Build/Prepare" in line or "cferam" in line or "INSTALL_DIR" in line:
+                  print("  " + line)
+          PYEOF
+
       - name: Configure target
         run: |
           cd openwrt-src
@@ -55,17 +78,8 @@ jobs:
           CONFIGEOF
           make defconfig
           grep -q "CONFIG_TARGET_bmips_bcm6362_DEVICE_netgear_d6300=y" .config \
-            && echo "TARGET OK: netgear_d6300"
-
-      - name: Inject cferam into bcm63xx-cfe package
-        run: |
-          cd openwrt-src
-          make package/kernel/bcm63xx-cfe/prepare V=s
-          SRC=$(find build_dir -maxdepth 4 -type d -name "bcm63xx-cfe-*" | head -n1)
-          echo "package source: $SRC"
-          mkdir -p "$SRC/netgear,d6300"
-          cp ../openwrt/bcm63xx-cfe/netgear,d6300/cferam.000 "$SRC/netgear,d6300/"
-          ls -l "$SRC/netgear,d6300/"
+            && echo "TARGET OK: netgear_d6300" \
+            || { echo "ERRORE: device non selezionato"; exit 1; }
 
       - name: Download sources
         run: |
@@ -75,18 +89,31 @@ jobs:
       - name: Build firmware
         run: |
           cd openwrt-src
-          df -h
-          make -j$(nproc) V=s 2>&1 | tail -n 300
+          set -euo pipefail
+          make -j$(nproc) V=s 2>&1 | tee build.log
+
+      - name: Show build outputs
+        if: always()
+        run: |
+          echo "=== cferam nello staging image ==="
+          find openwrt-src/staging_dir -path "*bcm63xx-cfe*" -type f 2>/dev/null | head -n 20 || true
+          echo "=== bin/targets ==="
+          find openwrt-src/bin/targets -maxdepth 4 -type f 2>/dev/null | head -n 100 || true
+          echo "=== ultime righe log ==="
+          tail -n 120 openwrt-src/build.log 2>/dev/null || true
 
       - name: Collect images
         if: always()
         run: |
           mkdir -p out
-          cp -v openwrt-src/bin/targets/bmips/bcm6362/* out/ 2>/dev/null || true
+          find openwrt-src/bin/targets/bmips/bcm6362 -maxdepth 2 -type f \
+            -exec cp -v {} out/ \; 2>/dev/null || true
           cp openwrt-commit.txt out/ 2>/dev/null || true
-          ls -la out
+          cp openwrt-src/build.log out/build.log 2>/dev/null || true
+          echo "=== contenuto out/ ==="
+          ls -la out/
 
-      - name: Upload firmware artifacts
+      - name: Upload artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
