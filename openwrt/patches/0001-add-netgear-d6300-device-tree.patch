@@ -12,17 +12,17 @@ Board data derived from the stock firmware analysis and boot log:
 - switch: BCM53125 (5 GbE ports, RGMII to the internal switch)
 - port mapping: lan1-lan4, wan
 - LEDs: internet/giga/lan via GPIO 4/5/7/10/26/30
-- partition layout: cferom, rootfs_update, wfi, flag, data
+- partition layout: cferom, wfi (image area at 0x4000), rootfs, flag, data
 
 The 5 GHz BCM4360 module is not supported (no mainline driver).
 
 ---
 diff --git a/target/linux/bmips/dts/bcm6362-netgear-d6300.dts b/target/linux/bmips/dts/bcm6362-netgear-d6300.dts
 new file mode 100644
-index 0000000..0393309
+index 0000000..3847532
 --- /dev/null
 +++ b/target/linux/bmips/dts/bcm6362-netgear-d6300.dts
-@@ -0,0 +1,230 @@
+@@ -0,0 +1,231 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +
 +#include "bcm6362.dtsi"
@@ -160,10 +160,11 @@ index 0000000..0393309
 +			#size-cells = <1>;
 +
 +			// Partition layout derived from the stock firmware boot log
-+			// (Linux 2.6.30, bcm963xx_mtd): nvram/rootfs_update/rootfs/data.
-+			// The CFE boots the "latest image" from the rootfs area (0x1d80000).
-+			// TODO: verify the exact CFE layout (cferom size, flags area)
-+			// from the CFE prompt before the upstream submission.
++			// (Linux 2.6.30, bcm963xx_mtd) and confirmed by the CFE flash
++			// behaviour: the CFE writes the whole WFI image at 0x4000
++			// ("Flashing root file system at 0xb8004000") and the
++			// brcm,wfi mtdsplit parser finds cferam/firmware/kernel/ubi
++			// inside it.
 +
 +			partition@0 {
 +				label = "cferom";
@@ -184,15 +185,15 @@ index 0000000..0393309
 +			};
 +
 +			partition@4000 {
-+				label = "rootfs_update";
++				compatible = "brcm,wfi";
++				label = "wfi";
 +				reg = <0x0004000 0x1d7c000>;
++				brcm,cferam = "cferam.000";
 +			};
 +
 +			partition@1d80000 {
-+				compatible = "brcm,wfi";
-+				label = "wfi";
++				label = "rootfs";
 +				reg = <0x1d80000 0x1d7c000>;
-+				brcm,cferam = "cferam";
 +			};
 +
 +			partition@3afc000 {

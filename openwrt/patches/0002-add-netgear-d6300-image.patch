@@ -12,18 +12,9 @@ Add the image recipe for the Netgear D6300:
 
 ---
 diff --git a/target/linux/bmips/image/bcm6362.mk b/target/linux/bmips/image/bcm6362.mk
-index f2ff5c7..dc0cb85 100644
+index f2ff5c7..0a5c924 100644
 --- a/target/linux/bmips/image/bcm6362.mk
 +++ b/target/linux/bmips/image/bcm6362.mk
-@@ -29,7 +29,7 @@
-   DEVICE_VARIANT := v2
-   CHIP_ID := 6362
-   CFE_RAM_FILE := netgear,dgnd3700-v2/cferam
--  CFE_RAM_JFFS2_NAME := cferam
-+  CFE_RAM_JFFS2_NAME := cferam.000
-   CFE_RAM_JFFS2_PAD := 496k
-   BLOCKSIZE := 16k
-   PAGESIZE := 512
 @@ -40,3 +40,21 @@
    CFE_WFI_VERSION := 0x5731
  endef
